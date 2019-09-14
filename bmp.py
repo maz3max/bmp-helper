@@ -2,11 +2,12 @@
 # Black Magic Probe helper script
 # This script can detect connected Black Magic Probes and can be used as a flashloader and much more
 
+import argparse
 import os
 import re
 import sys
+
 import humanize
-import argparse
 import serial.tools.list_ports
 from pygdbmi.gdbcontroller import GdbController
 
@@ -131,27 +132,27 @@ if __name__ == '__main__':
         print("")
 
         res = gdbmi.write('-target-attach %s' % args.attach)
-        # TODO check res
 
         # reset mode: reset device using reset pin
         if args.action == 'reset':
             res = gdbmi.write('monitor hard_srst', timeout_sec=TIMEOUT)
-            assert res[-1]['message'] == 'done', "reset failed: %s" % str(res[-1]['message'])
+            assert res[-1]['message'] == 'done', "reset failed: %s" % str(res[-1])
             print("reset successful")
             sys.exit(0)
         # erase mode
         elif args.action == 'erase':
             res = gdbmi.write('-target-flash-erase', timeout_sec=TIMEOUT)
-            assert res[-1]['message'] == 'done', "erase failed: %s" % str(res[-1]['message'])
+            assert res[-1]['message'] == 'done', "erase failed: %s" % str(res[-1])
             print("erase successful")
             sys.exit(0)
         # flashloader mode: flash, check and restart
         elif args.action == 'flash':
             # download to flash
             res = gdbmi.write('-target-download', timeout_sec=TIMEOUT)
-            downloading = True
-            first = True
-            current_sec = None
+            downloading = True  # flag to leave outer loop
+            first = True  # whether this is the first status message
+            current_sec = None  # name of current section
+            pbar = ProgressBar()
             while downloading:
                 for msg in res:
                     if msg['type'] == 'result':
@@ -191,5 +192,5 @@ if __name__ == '__main__':
             # kill and reset
             res = gdbmi.write('kill')
             if res[-1]['type'] == 'result':
-                assert res[-1]['message'] == 'done', "kill failed: %s" % str(res[-1]['message'])
+                assert res[-1]['message'] == 'done', "kill failed: %s" % str(res[-1])
                 print("kill finished")
