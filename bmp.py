@@ -9,6 +9,7 @@ import sys
 
 import humanize
 import serial.tools.list_ports
+from progressbar import Bar, Percentage, ProgressBar
 from pygdbmi.gdbcontroller import GdbController
 
 parser = argparse.ArgumentParser(description='Black Magic Tool helper script.')
@@ -158,6 +159,8 @@ if __name__ == '__main__':
                     if msg['type'] == 'result':
                         downloading = False
                         assert msg['message'] == 'done', "download failed: %s" % str(msg)
+                        if pbar.start_time:
+                            pbar.finish()
                         print("downloading finished")
                         break
                     elif msg['type'] == 'output':
@@ -169,12 +172,15 @@ if __name__ == '__main__':
                                 first = False
                                 print("downloading... total size: %s" % humanize.naturalsize(int(m.group(5)), gnu=True))
                             if m.group(1) != current_sec:
+                                if pbar.start_time:
+                                    pbar.finish()
+                                pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=int(m.group(3))).start()
                                 current_sec = m.group(1)
                                 print(
                                     "downloading section [%s] (%s)" % (
                                         m.group(1), humanize.naturalsize(int(m.group(3)), gnu=True)))
                             if m.group(2):
-                                print("%u%%..." % (round(100 * int(m.group(4))) / int(m.group(5))))
+                                pbar.update(int(m.group(2)))
                 if downloading:
                     res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
 
