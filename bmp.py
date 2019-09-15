@@ -39,18 +39,8 @@ def detect_probes():
             if p.interface == 'Black Magic GDB Server' \
                     or re.fullmatch(r'/dev/cu\.usbmodem([A-F0-9]*)1', p.device) \
                     or p.location[-1] == '0':
-                print("found [Black Magic GDB Server] at [%s]" % p.device, end=' ')
-                if len(p.serial_number) > 1:
-                    print("Serial: [%s]" % p.serial_number)
-                else:
-                    print('')
                 GDBs.append(p)
             else:
-                print("found [Black Magic UART Port] at [%s]" % p.device, end=' ')
-                if len(p.serial_number) > 1:
-                    print("Serial: [%s]" % p.serial_number)
-                else:
-                    print('')
                 UARTs.append(p)
     return GDBs, UARTs
 
@@ -63,14 +53,36 @@ def search_serial(snr, l):
 
 
 # parse GDB output for targets
-def detect_targets(res):
+def detect_targets(gdbmi, res):
     targets = []
-    for e in res:
-        if e['type'] == 'target':
-            m = re.fullmatch(pattern=r"\s*(\d)+\s*(.*)\\n", string=e['payload'])
-            if m:
-                targets.append(m.group(2))
-    return targets
+    while True:
+        for msg in res:
+            if msg['type'] == 'target':
+                m = re.fullmatch(pattern=r"\s*(\d)+\s*(.*)\\n", string=msg['payload'])
+                if m:
+                    targets.append(m.group(2))
+            elif msg['type'] == 'result':
+                assert msg['message'] == 'done', str(msg)
+                return targets
+
+        res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
+
+
+def gdb_write_and_wait_for_result(gdbmi, cmd, description, expected_result='done'):
+    res = gdbmi.write(cmd, timeout_sec=TIMEOUT)
+    no_result = True
+    while True:
+        for msg in res:
+            print(msg)
+            if msg['type'] == 'result':
+                no_result = False
+                if msg['message'] == expected_result:
+                    print(description, "successful.")
+                    return True
+                else:
+                    print(description, "failed.", file=sys.stderr)
+                    return False
+        res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
 
 
 if __name__ == '__main__':
@@ -91,12 +103,23 @@ if __name__ == '__main__':
         os.system(args.term_cmd % port)
         sys.exit(0)
     else:
+        print("found following Black Magic GDB servers:")
+        for i, s in enumerate(g):
+            print("\t[%s]" % s.device, end=' ')
+            if len(s.serial_number) > 1:
+                print("Serial:", s.serial_number, end=' ')
+            if i == 0:
+                print("<- default", end=' ')
+            print('')
+
         port = g[0].device
         if args.port:
             port = args.port
         elif args.serial:
             port = search_serial(args.serial, g)
             assert port, "no BMP with this serial found"
+
+        print('connecting to [%s]...' % port)
 
         fname = args.file if args.file else ''
 
@@ -117,34 +140,41 @@ if __name__ == '__main__':
 
         # open GDB in machine interface mode
         gdbmi = GdbController(gdb_path=args.gdb_path, gdb_args=["--nx", "--quiet", "--interpreter=mi2", fname])
-        res = gdbmi.write('-target-select extended-remote %s' % port)
-        assert (res[-1]['message'] == 'connected'), res[-1]['payload']['msg']
+        assert gdb_write_and_wait_for_result(gdbmi, '-target-select extended-remote %s' % port, 'connecting',
+                                             expected_result='connected')
+        # set options
         if args.connect_srst:
             gdbmi.write('monitor connect_srst enable', timeout_sec=TIMEOUT)
         if args.tpwr:
             gdbmi.write('monitor tpwr enable', timeout_sec=TIMEOUT)
-        res = gdbmi.write('monitor swdp_scan', timeout_sec=TIMEOUT)
 
-        targets = detect_targets(res)
+        # scan for targets
+        if not args.jtag:
+            print("scanning using SWD...")
+            res = gdbmi.write('monitor swdp_scan', timeout_sec=TIMEOUT)
+        else:
+            print("scanning using JTAG...")
+            res = gdbmi.write('monitor jtag_scan', timeout_sec=TIMEOUT)
+        targets = detect_targets(gdbmi, res)
         assert len(targets) > 0, "no targets found"
         print("found following targets:")
         for t in targets:
             print("\t%s" % t)
         print("")
 
-        res = gdbmi.write('-target-attach %s' % args.attach)
+        if args.action == 'list':
+            sys.exit(0)
+
+        assert gdb_write_and_wait_for_result(gdbmi, '-target-attach %s' % args.attach, 'attaching to target')
 
         # reset mode: reset device using reset pin
         if args.action == 'reset':
-            res = gdbmi.write('monitor hard_srst', timeout_sec=TIMEOUT)
-            assert res[-1]['message'] == 'done', "reset failed: %s" % str(res[-1])
-            print("reset successful")
+            assert gdb_write_and_wait_for_result(gdbmi, 'monitor hard_srst', 'resetting target')
             sys.exit(0)
         # erase mode
         elif args.action == 'erase':
-            res = gdbmi.write('-target-flash-erase', timeout_sec=TIMEOUT)
-            assert res[-1]['message'] == 'done', "erase failed: %s" % str(res[-1])
-            print("erase successful")
+            print('erasing...')
+            assert gdb_write_and_wait_for_result(gdbmi, '-target-flash-erase', 'erasing target')
             sys.exit(0)
         # flashloader mode: flash, check and restart
         elif args.action == 'flash':
@@ -184,19 +214,7 @@ if __name__ == '__main__':
                 if downloading:
                     res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
 
-            print("checking...")
-            checking = True
-            res = gdbmi.write('compare-sections')
-            while checking:
-                for msg in res:
-                    if msg['type'] == 'result':
-                        checking = False
-                        assert msg['message'] == 'done', "check failed: %s" % str(msg)
-                        print("check finished")
-                if checking:
-                    res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
+            # check flash
+            assert gdb_write_and_wait_for_result(gdbmi, 'compare-sections', 'checking flash')
             # kill and reset
-            res = gdbmi.write('kill')
-            if res[-1]['type'] == 'result':
-                assert res[-1]['message'] == 'done', "kill failed: %s" % str(res[-1])
-                print("kill finished")
+            assert gdb_write_and_wait_for_result(gdbmi, 'kill', 'killing')
