@@ -37,7 +37,7 @@ def detect_probes():
     for p in serial.tools.list_ports.comports():
         if p.vid == 0x1D50 and p.pid in {0x6018, 0x6017}:
             if p.interface == 'Black Magic GDB Server' \
-                    or re.fullmatch(r'/dev/cu\\.usbmodem([A-F0-9]*)1', p.device) \
+                    or re.fullmatch(r'/dev/cu\.usbmodem([A-F0-9]*)1', p.device) \
                     or p.location[-1] == '0':
                 print("found [Black Magic GDB Server] at [%s]" % p.device, end=' ')
                 if len(p.serial_number) > 1:
