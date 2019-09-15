@@ -15,13 +15,13 @@ from pygdbmi.gdbcontroller import GdbController
 parser = argparse.ArgumentParser(description='Black Magic Tool helper script.')
 parser.add_argument('--jtag', action='store_true', help='use JTAG transport')
 parser.add_argument('--swd', action='store_true', help='use SWD transport (default)')
-parser.add_argument('--connect_srst', action='store_true', help='reset target while connecting')
+parser.add_argument('--connect-srst', action='store_true', help='reset target while connecting')
 parser.add_argument('--tpwr', action='store_true', help='enable target power')
 parser.add_argument('--serial', help='choose specific probe by serial number')
 parser.add_argument('--port', help='choose specific probe by port')
 parser.add_argument('--attach', help='choose specific target by number', default='1')
-parser.add_argument('--gdb_path', help='path to GDB', default='gdb-multiarch')
-parser.add_argument('--term_cmd', help='serial terminal command', default='screen %s 115200')
+parser.add_argument('--gdb-path', help='path to GDB', default='gdb-multiarch')
+parser.add_argument('--term-cmd', help='serial terminal command', default='screen %s 115200')
 parser.add_argument('action', help='choose a task to perform', nargs='?',
                     choices=['list', 'flash', 'erase', 'debug', 'term', 'reset'],
                     default='list')
