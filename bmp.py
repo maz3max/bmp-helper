@@ -36,9 +36,11 @@ def detect_probes():
     UARTs = []
     for p in serial.tools.list_ports.comports():
         if p.vid == 0x1D50 and p.pid in {0x6018, 0x6017}:
-            if p.interface == 'Black Magic GDB Server' \
+            if re.fullmatch(r'COM\d\d', p.device):
+                p.device = '//./' + p.device
+            if 'GDB' in str(p.interface) \
                     or re.fullmatch(r'/dev/cu\.usbmodem([A-F0-9]*)1', p.device) \
-                    or p.location[-1] == '0':
+                    or p.location[-1] == '0' and os.name == 'nt':
                 GDBs.append(p)
             else:
                 UARTs.append(p)
@@ -135,7 +137,7 @@ if __name__ == '__main__':
             else:
                 gdb_args.append('-ex \'monitor swdp_scan\'')
             gdb_args.append('-ex \'attach %s\'' % args.attach)
-            os.system(" ".join([args.gdb_path] + gdb_args + [fname]))
+            os.system(" ".join(['\"' + args.gdb_path + '\"'] + gdb_args + [fname]))
             sys.exit(0)
 
         # open GDB in machine interface mode
