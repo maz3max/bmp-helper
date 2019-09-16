@@ -21,7 +21,8 @@ parser.add_argument('--serial', help='choose specific probe by serial number')
 parser.add_argument('--port', help='choose specific probe by port')
 parser.add_argument('--attach', help='choose specific target by number', default='1')
 parser.add_argument('--gdb-path', help='path to GDB', default='gdb-multiarch')
-parser.add_argument('--term-cmd', help='serial terminal command', default='screen %s 115200')
+parser.add_argument('--term-cmd', help='serial terminal command',
+                    default='picocom --nolock --imap lfcrlf --baud 115200 %s')
 parser.add_argument('action', help='choose a task to perform', nargs='?',
                     choices=['list', 'flash', 'erase', 'debug', 'term', 'reset'],
                     default='list')
@@ -75,7 +76,6 @@ def gdb_write_and_wait_for_result(gdbmi, cmd, description, expected_result='done
     no_result = True
     while True:
         for msg in res:
-            print(msg)
             if msg['type'] == 'result':
                 no_result = False
                 if msg['message'] == expected_result:
