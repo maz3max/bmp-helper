@@ -73,11 +73,9 @@ def detect_targets(gdbmi, res):
 
 def gdb_write_and_wait_for_result(gdbmi, cmd, description, expected_result='done'):
     res = gdbmi.write(cmd, timeout_sec=TIMEOUT)
-    no_result = True
     while True:
         for msg in res:
             if msg['type'] == 'result':
-                no_result = False
                 if msg['message'] == expected_result:
                     print(description, "successful.")
                     return True
@@ -197,26 +195,42 @@ if __name__ == '__main__':
                         break
                     elif msg['type'] == 'output':
                         m = re.fullmatch(
-                            pattern=r"\+download,\{(?:section=\"(.*?)\")?,?(?:section-sent=\"(.*?)\")?,?(?:section-size=\"(.*?)\")?,?(?:total-sent=\"(.*?)\")?,?(?:total-size=\"(.*?)\")?,?\}",
+                            pattern=r"\+download,"
+                                    r"\{(?:section=\"(.*?)\")?,?(?:section-sent=\"(.*?)\")?,?"
+                                    r"(?:section-size=\"(.*?)\")?,?(?:total-sent=\"(.*?)\")?,?"
+                                    r"(?:total-size=\"(.*?)\")?,?\}",
                             string=msg['payload'])
                         if m:
                             if first:
                                 first = False
-                                print("downloading... total size: %s" % humanize.naturalsize(int(m.group(5)), gnu=True))
+                                print("downloading... total size: %s"
+                                      % humanize.naturalsize(int(m.group(5)), gnu=True))
                             if m.group(1) != current_sec:
                                 if pbar.start_time:
                                     pbar.finish()
                                 pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=int(m.group(3))).start()
                                 current_sec = m.group(1)
-                                print(
-                                    "downloading section [%s] (%s)" % (
-                                        m.group(1), humanize.naturalsize(int(m.group(3)), gnu=True)))
+                                print("downloading section [%s] (%s)" % (
+                                    m.group(1), humanize.naturalsize(int(m.group(3)), gnu=True)))
                             if m.group(2):
                                 pbar.update(int(m.group(2)))
                 if downloading:
                     res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
 
             # check flash
-            assert gdb_write_and_wait_for_result(gdbmi, 'compare-sections', 'checking flash')
+            res = gdbmi.write('compare-sections', timeout_sec=TIMEOUT)
+            checking = True
+            while checking:
+                for msg in res:
+                    if msg['type'] == 'result':
+                        checking = False
+                        assert msg['message'] == 'done', "checking failed: %s" % str(msg)
+                        print("checking successful")
+                    elif msg['type'] == 'console':
+                        assert 'matched' in msg['payload'] and 'MIS-MATCHED' not in msg['payload'], \
+                            "checking failed: %s" % str(msg)
+                if checking:
+                    res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
+
             # kill and reset
             assert gdb_write_and_wait_for_result(gdbmi, 'kill', 'killing')
