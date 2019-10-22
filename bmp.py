@@ -171,33 +171,32 @@ def check_flash(gdbmi):
         res = gdbmi.get_gdb_response(timeout_sec=TIMEOUT)
 
 
-def choose_bmp_port(gdb_ports):
-    print("found following Black Magic GDB servers:")
-    for i, s in enumerate(gdb_ports):
-        print("\t[%s]" % s.device, end=' ')
-        if len(s.serial_number) > 1:
-            print("Serial:", s.serial_number, end=' ')
-        if i == 0:
-            print("<- default", end=' ')
-        print('')
-    port = gdb_ports[0].device
+def choose_bmp_port(bmp_ports):
+    port = bmp_ports[0].device
     if args.port:
         port = args.port
     elif args.serial:
-        port = search_serial(args.serial, gdb_ports)
+        port = search_serial(args.serial, bmp_ports)
         assert port, "no BMP with this serial found"
+    if 'GDB' in str(bmp_ports[0].interface):
+        print("found following Black Magic GDB servers:")
+    else:
+        print("found following Black Magic UART ports:")
+
+    for i, s in enumerate(bmp_ports):
+        print("\t[%s]" % s.device, end=' ')
+        if len(s.serial_number) > 1:
+            print("Serial:", s.serial_number, end=' ')
+        if port == s.device:
+            print("<- chosen", end=' ')
+        print('')
     print('connecting to [%s]...' % port)
     return port
 
 
 # terminal mode, opens TTY program
 def term_mode(uart_ports):
-    port = uart_ports[0].device
-    if args.port:
-        port = args.port
-    elif args.serial:
-        port = search_serial(args.serial, uart_ports)
-        assert port, "no BMP with this serial found"
+    port = choose_bmp_port(uart_ports)
     os.system(args.term_cmd % port)
     sys.exit(0)
 
