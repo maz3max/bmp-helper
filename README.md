@@ -47,7 +47,7 @@ optional arguments:
 ```
 user@pc:~$ ./bmp.py --connect-srst
 found following Black Magic GDB servers:
-	[/dev/ttyACM0] Serial: BDD391D6 <- default 
+	[/dev/ttyACM0] Serial: BDD391D6 <- default
 connecting to [/dev/ttyACM0]...
 connecting successful.
 scanning using SWD...
@@ -56,9 +56,9 @@ found following targets:
 ```
 * flashing:
 ```
-user@pc:~$ ./bmp.py --connect-srst flash example.elf 
+user@pc:~$ ./bmp.py --connect-srst flash example.elf
 found following Black Magic GDB servers:
-	[/dev/ttyACM0] Serial: BDD391D6 <- default 
+	[/dev/ttyACM0] Serial: BDD391D6 <- default
 connecting to [/dev/ttyACM0]...
 connecting successful.
 scanning using SWD...
@@ -79,7 +79,7 @@ killing successful.
 ```
 user@pc:~$ ./bmp.py --connect-srst erase
 found following Black Magic GDB servers:
-	[/dev/ttyACM0] Serial: BDD391D6 <- default 
+	[/dev/ttyACM0] Serial: BDD391D6 <- default
 connecting to [/dev/ttyACM0]...
 connecting successful.
 scanning using SWD...
@@ -92,9 +92,9 @@ erasing target successful.
 ```
 * open GDB shell:
 ```
-user@pc:~$ ./bmp.py --connect-srst debug example.elf 
+user@pc:~$ ./bmp.py --connect-srst debug example.elf
 found following Black Magic GDB servers:
-	[/dev/ttyACM0] Serial: BDD391D6 <- default 
+	[/dev/ttyACM0] Serial: BDD391D6 <- default
 connecting to [/dev/ttyACM0]...
 GNU gdb (Debian 8.2.1-2+b1) 8.2.1
 Copyright (C) 2018 Free Software Foundation, Inc.
@@ -122,7 +122,7 @@ Attaching to program: /home/user/dev/helloriot/bin/bluepill/example.elf, Remote 
 reset_handler_default ()
     at /home/max/dev/RIOT/cpu/cortexm_common/vectors_cortexm.c:79
 79	{
-(gdb) 
+(gdb)
 ```
 * open UART:
 ```
